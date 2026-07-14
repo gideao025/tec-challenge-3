@@ -1,0 +1,1078 @@
+{
+  "info": {
+    "name": "Tech Challenge Fase 3 - Backend Hospitalar",
+    "description": "Agendamento de consultas com Spring Security (JWT), GraphQL e RabbitMQ.\n\nCOMO USAR\n1. Suba o ambiente: `docker compose up --build`\n2. Rode a pasta **1. Autenticacao** primeiro: os tres logins gravam os tokens nas variaveis da collection (tokenMedico, tokenEnfermeiro, tokenPaciente).\n3. As demais pastas ja usam esses tokens automaticamente.\n\nSenha de todos os usuarios do seed: `senha123`.\n\nOBSERVACAO SOBRE OS CODIGOS HTTP\nO GraphQL responde HTTP 200 mesmo quando a operacao falha: o erro vem no array `errors`. Por isso os casos de acesso negado verificam `errors[0].extensions.classification == FORBIDDEN`, que e o equivalente ao 403. Ja o 401 (sem token / token invalido) e barrado antes do GraphQL, pelo filtro de seguranca, e ai sim vira um HTTP 401 de verdade.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "tokenMedico",
+      "value": ""
+    },
+    {
+      "key": "tokenEnfermeiro",
+      "value": ""
+    },
+    {
+      "key": "tokenPaciente",
+      "value": ""
+    },
+    {
+      "key": "consultaCriadaId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Autenticacao",
+      "description": "Login das tres roles. Rode esta pasta primeiro.",
+      "item": [
+        {
+          "name": "Login - MEDICO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('devolve token Bearer', () => {",
+                  "    pm.expect(body.token).to.be.a('string').and.not.empty;",
+                  "    pm.expect(body.tipo).to.eql('Bearer');",
+                  "});",
+                  "pm.collectionVariables.set('tokenMedico', body.token);",
+                  "console.log('tokenMedico salvo:', body.role);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"medico@hospital.com\",\n  \"senha\": \"senha123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Troca credenciais por um JWT. Unico endpoint REST do sistema."
+          }
+        },
+        {
+          "name": "Login - ENFERMEIRO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('devolve token Bearer', () => {",
+                  "    pm.expect(body.token).to.be.a('string').and.not.empty;",
+                  "    pm.expect(body.tipo).to.eql('Bearer');",
+                  "});",
+                  "pm.collectionVariables.set('tokenEnfermeiro', body.token);",
+                  "console.log('tokenEnfermeiro salvo:', body.role);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"enfermeiro@hospital.com\",\n  \"senha\": \"senha123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Troca credenciais por um JWT. Unico endpoint REST do sistema."
+          }
+        },
+        {
+          "name": "Login - PACIENTE",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('devolve token Bearer', () => {",
+                  "    pm.expect(body.token).to.be.a('string').and.not.empty;",
+                  "    pm.expect(body.tipo).to.eql('Bearer');",
+                  "});",
+                  "pm.collectionVariables.set('tokenPaciente', body.token);",
+                  "console.log('tokenPaciente salvo:', body.role);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"paciente@hospital.com\",\n  \"senha\": \"senha123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Troca credenciais por um JWT. Unico endpoint REST do sistema."
+          }
+        },
+        {
+          "name": "Login - senha invalida (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+                  "pm.test('nao devolve token', () => pm.expect(pm.response.text()).to.not.include('token'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"medico@hospital.com\",\n  \"senha\": \"senha-errada\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Credenciais invalidas: a resposta e a mesma para senha errada e para usuario inexistente, para nao permitir enumerar e-mails cadastrados."
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Consultas - GraphQL (acesso permitido)",
+      "description": "Operacoes bem-sucedidas para cada perfil.",
+      "item": [
+        {
+          "name": "MEDICO - historico completo do paciente 1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('sem erros GraphQL', () => pm.expect(body.errors, JSON.stringify(body.errors)).to.be.undefined);",
+                  "pm.test('retornou consultas', () => pm.expect(body.data.consultasPorPaciente).to.be.an('array').that.is.not.empty);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query HistoricoDoPaciente($pacienteId: ID, $apenasFuturas: Boolean) {\n  consultasPorPaciente(pacienteId: $pacienteId, apenasFuturas: $apenasFuturas) {\n    id\n    dataHora\n    status\n    observacoes\n    paciente { id nome email }\n    medico { id nome especialidade }\n  }\n}",
+                "variables": "{\n  \"pacienteId\": \"1\",\n  \"apenasFuturas\": false\n}"
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/graphql",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "graphql"
+              ]
+            },
+            "description": "Medico visualiza o historico de qualquer paciente.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenMedico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "MEDICO - apenas consultas futuras do paciente 1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('sem erros GraphQL', () => pm.expect(body.errors, JSON.stringify(body.errors)).to.be.undefined);",
+                  "pm.test('todas as consultas sao futuras', () => {",
+                  "    const agora = new Date();",
+                  "    body.data.consultasPorPaciente.forEach(c =>",
+                  "        pm.expect(new Date(c.dataHora)).to.be.at.least(agora));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query HistoricoDoPaciente($pacienteId: ID, $apenasFuturas: Boolean) {\n  consultasPorPaciente(pacienteId: $pacienteId, apenasFuturas: $apenasFuturas) {\n    id\n    dataHora\n    status\n    observacoes\n    paciente { id nome email }\n    medico { id nome especialidade }\n  }\n}",
+                "variables": "{\n  \"pacienteId\": \"1\",\n  \"apenasFuturas\": true\n}"
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/graphql",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "graphql"
+              ]
+            },
+            "description": "Filtro flexivel do GraphQL: apenas os atendimentos futuros.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenMedico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "ENFERMEIRO - acessa o historico",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('sem erros GraphQL', () => pm.expect(body.errors, JSON.stringify(body.errors)).to.be.undefined);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query HistoricoDoPaciente($pacienteId: ID, $apenasFuturas: Boolean) {\n  consultasPorPaciente(pacienteId: $pacienteId, apenasFuturas: $apenasFuturas) {\n    id\n    dataHora\n    status\n    observacoes\n    paciente { id nome email }\n    medico { id nome especialidade }\n  }\n}",
+                "variables": "{\n  \"pacienteId\": \"1\"\n}"
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/graphql",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "graphql"
+              ]
+            },
+            "description": "Enfermeiro tem acesso de leitura ao historico.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenEnfermeiro}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "ENFERMEIRO - registra nova consulta",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('sem erros GraphQL', () => pm.expect(body.errors, JSON.stringify(body.errors)).to.be.undefined);",
+                  "pm.test('nasce AGENDADA', () => pm.expect(body.data.criarConsulta.status).to.eql('AGENDADA'));",
+                  "pm.collectionVariables.set('consultaCriadaId', body.data.criarConsulta.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "mutation CriarConsulta($input: CriarConsultaInput!) {\n  criarConsulta(input: $input) {\n    id\n    dataHora\n    status\n    observacoes\n    paciente { id nome }\n    medico { id nome }\n  }\n}",
+                "variables": "{\n  \"input\": {\n    \"pacienteId\": \"1\",\n    \"medicoId\": \"1\",\n    \"dataHora\": \"2027-03-15T14:30:00\",\n    \"observacoes\": \"Consulta registrada pela enfermagem.\"\n  }\n}"
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/graphql",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "graphql"
+              ]
+            },
+            "description": "Enfermeiro registra consultas. A consulta nasce AGENDADA e o servico publica o evento `consulta.criada` no RabbitMQ -> o notificacao-service envia a confirmacao (veja em http://localhost:8025).",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenEnfermeiro}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "MEDICO - edita a consulta recem-criada",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('sem erros GraphQL', () => pm.expect(body.errors, JSON.stringify(body.errors)).to.be.undefined);",
+                  "pm.test('status atualizado', () => pm.expect(body.data.atualizarConsulta.status).to.eql('REALIZADA'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "mutation AtualizarConsulta($id: ID!, $input: AtualizarConsultaInput!) {\n  atualizarConsulta(id: $id, input: $input) {\n    id\n    dataHora\n    status\n    observacoes\n  }\n}",
+                "variables": "{\n  \"id\": \"{{consultaCriadaId}}\",\n  \"input\": {\n    \"status\": \"REALIZADA\",\n    \"observacoes\": \"Paciente compareceu; exames solicitados.\"\n  }\n}"
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/graphql",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "graphql"
+              ]
+            },
+            "description": "Apenas o medico edita o historico. Publica `consulta.atualizada`.\n\nUsa o id salvo pela requisicao anterior.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenMedico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "MEDICO - cancela uma consulta",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('sem erros GraphQL', () => pm.expect(body.errors, JSON.stringify(body.errors)).to.be.undefined);",
+                  "pm.test('cancelada', () => pm.expect(body.data.atualizarConsulta.status).to.eql('CANCELADA'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "mutation AtualizarConsulta($id: ID!, $input: AtualizarConsultaInput!) {\n  atualizarConsulta(id: $id, input: $input) {\n    id\n    dataHora\n    status\n    observacoes\n  }\n}",
+                "variables": "{\n  \"id\": \"3\",\n  \"input\": {\n    \"status\": \"CANCELADA\",\n    \"observacoes\": \"Cancelada a pedido do paciente.\"\n  }\n}"
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/graphql",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "graphql"
+              ]
+            },
+            "description": "O cancelamento publica `consulta.atualizada` com status CANCELADA. E por isso que o evento carrega o status: sem ele, o notificacao-service continuaria enviando lembretes de uma consulta cancelada.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenMedico}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PACIENTE - ve as proprias consultas (sem informar pacienteId)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('sem erros GraphQL', () => pm.expect(body.errors, JSON.stringify(body.errors)).to.be.undefined);",
+                  "pm.test('todas as consultas sao do proprio paciente', () =>",
+                  "    body.data.consultasPorPaciente.forEach(c =>",
+                  "        pm.expect(c.paciente.email).to.eql('paciente@hospital.com')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query HistoricoDoPaciente($pacienteId: ID, $apenasFuturas: Boolean) {\n  consultasPorPaciente(pacienteId: $pacienteId, apenasFuturas: $apenasFuturas) {\n    id\n    dataHora\n    status\n    observacoes\n    paciente { id nome email }\n    medico { id nome especialidade }\n  }\n}",
+                "variables": "{}"
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/graphql",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "graphql"
+              ]
+            },
+            "description": "O paciente nao precisa (nem deve) informar o pacienteId: o service forca o filtro pelo usuario autenticado.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenPaciente}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PACIENTE - detalhe de uma consulta propria",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('sem erros GraphQL', () => pm.expect(body.errors, JSON.stringify(body.errors)).to.be.undefined);",
+                  "pm.test('devolveu a consulta', () => pm.expect(body.data.consulta.id).to.eql('2'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query DetalheDaConsulta($id: ID!) {\n  consulta(id: $id) {\n    id\n    dataHora\n    status\n    observacoes\n    paciente { id nome }\n    medico { id nome }\n  }\n}",
+                "variables": "{\n  \"id\": \"2\"\n}"
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/graphql",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "graphql"
+              ]
+            },
+            "description": "A consulta 2 pertence ao Joao (paciente autenticado).",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenPaciente}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Acesso negado",
+      "description": "Casos de autorizacao. Os erros de ROLE e de OWNERSHIP chegam como `classification: FORBIDDEN` dentro do array `errors` (HTTP 200, como manda o GraphQL); a falta de token e barrada antes, com HTTP 401.",
+      "item": [
+        {
+          "name": "PACIENTE nao pode criar consulta (FORBIDDEN)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200 (GraphQL sinaliza a falha no array errors)', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('acesso negado com classification FORBIDDEN', () => {",
+                  "    pm.expect(body.errors, 'esperava um erro de autorizacao').to.be.an('array');",
+                  "    pm.expect(body.errors[0].extensions.classification).to.eql('FORBIDDEN');",
+                  "});",
+                  "pm.test('nenhum dado vazou', () => pm.expect(body.data && body.data.criarConsulta).to.not.be.ok);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "mutation CriarConsulta($input: CriarConsultaInput!) {\n  criarConsulta(input: $input) {\n    id\n    dataHora\n    status\n    observacoes\n    paciente { id nome }\n    medico { id nome }\n  }\n}",
+                "variables": "{\n  \"input\": {\n    \"pacienteId\": \"1\",\n    \"medicoId\": \"1\",\n    \"dataHora\": \"2027-04-01T09:00:00\"\n  }\n}"
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/graphql",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "graphql"
+              ]
+            },
+            "description": "Registrar consultas e prerrogativa de MEDICO e ENFERMEIRO (@PreAuthorize no resolver).",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenPaciente}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "ENFERMEIRO nao pode editar o historico (FORBIDDEN)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200 (GraphQL sinaliza a falha no array errors)', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('acesso negado com classification FORBIDDEN', () => {",
+                  "    pm.expect(body.errors, 'esperava um erro de autorizacao').to.be.an('array');",
+                  "    pm.expect(body.errors[0].extensions.classification).to.eql('FORBIDDEN');",
+                  "});",
+                  "pm.test('nenhum dado vazou', () => pm.expect(body.data && body.data.atualizarConsulta).to.not.be.ok);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "mutation AtualizarConsulta($id: ID!, $input: AtualizarConsultaInput!) {\n  atualizarConsulta(id: $id, input: $input) {\n    id\n    dataHora\n    status\n    observacoes\n  }\n}",
+                "variables": "{\n  \"id\": \"1\",\n  \"input\": {\n    \"status\": \"CANCELADA\"\n  }\n}"
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/graphql",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "graphql"
+              ]
+            },
+            "description": "O enfermeiro registra e le consultas, mas editar o historico e exclusivo do MEDICO.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenEnfermeiro}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PACIENTE nao ve o historico de OUTRO paciente (FORBIDDEN)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200 (GraphQL sinaliza a falha no array errors)', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('acesso negado com classification FORBIDDEN', () => {",
+                  "    pm.expect(body.errors, 'esperava um erro de autorizacao').to.be.an('array');",
+                  "    pm.expect(body.errors[0].extensions.classification).to.eql('FORBIDDEN');",
+                  "});",
+                  "pm.test('nenhum dado vazou', () => pm.expect(body.data && body.data.consultasPorPaciente).to.not.be.ok);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query HistoricoDoPaciente($pacienteId: ID, $apenasFuturas: Boolean) {\n  consultasPorPaciente(pacienteId: $pacienteId, apenasFuturas: $apenasFuturas) {\n    id\n    dataHora\n    status\n    observacoes\n    paciente { id nome email }\n    medico { id nome especialidade }\n  }\n}",
+                "variables": "{\n  \"pacienteId\": \"2\"\n}"
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/graphql",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "graphql"
+              ]
+            },
+            "description": "Regra de ownership: o Joao (paciente 1) tenta ler o prontuario da Maria (paciente 2). O service rejeita em vez de silenciosamente trocar o filtro.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenPaciente}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PACIENTE nao acessa consulta alheia pelo id (FORBIDDEN)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200 (GraphQL sinaliza a falha no array errors)', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('acesso negado com classification FORBIDDEN', () => {",
+                  "    pm.expect(body.errors, 'esperava um erro de autorizacao').to.be.an('array');",
+                  "    pm.expect(body.errors[0].extensions.classification).to.eql('FORBIDDEN');",
+                  "});",
+                  "pm.test('nenhum dado vazou', () => pm.expect(body.data && body.data.consulta).to.not.be.ok);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query DetalheDaConsulta($id: ID!) {\n  consulta(id: $id) {\n    id\n    dataHora\n    status\n    observacoes\n    paciente { id nome }\n    medico { id nome }\n  }\n}",
+                "variables": "{\n  \"id\": \"4\"\n}"
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/graphql",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "graphql"
+              ]
+            },
+            "description": "A consulta 4 pertence a Maria. Nao basta filtrar a listagem: o acesso direto por id tambem e verificado.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenPaciente}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Sem token (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query HistoricoDoPaciente($pacienteId: ID, $apenasFuturas: Boolean) {\n  consultasPorPaciente(pacienteId: $pacienteId, apenasFuturas: $apenasFuturas) {\n    id\n    dataHora\n    status\n    observacoes\n    paciente { id nome email }\n    medico { id nome especialidade }\n  }\n}",
+                "variables": "{\n  \"pacienteId\": \"1\"\n}"
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/graphql",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "graphql"
+              ]
+            },
+            "description": "Sem Authorization, o filtro JWT nao autentica e a requisicao nem chega ao GraphQL.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Token adulterado (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenMedico}}-assinatura-alterada"
+              }
+            ],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query { consultasPorPaciente(pacienteId: 1) { id } }",
+                "variables": "{}"
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/graphql",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "graphql"
+              ]
+            },
+            "description": "A assinatura HS256 nao confere: o token e recusado."
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Validacoes de dominio",
+      "description": "Erros de regra de negocio (classification BAD_REQUEST / NOT_FOUND).",
+      "item": [
+        {
+          "name": "Agendar no passado (BAD_REQUEST)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('classification BAD_REQUEST', () => pm.expect(body.errors[0].extensions.classification).to.eql('BAD_REQUEST'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "mutation CriarConsulta($input: CriarConsultaInput!) {\n  criarConsulta(input: $input) {\n    id\n    dataHora\n    status\n    observacoes\n    paciente { id nome }\n    medico { id nome }\n  }\n}",
+                "variables": "{\n  \"input\": {\n    \"pacienteId\": \"1\",\n    \"medicoId\": \"1\",\n    \"dataHora\": \"2020-01-01T10:00:00\"\n  }\n}"
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/graphql",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "graphql"
+              ]
+            },
+            "description": "Nao e possivel agendar uma consulta em uma data que ja passou.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenEnfermeiro}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Paciente inexistente (NOT_FOUND)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('classification NOT_FOUND', () => pm.expect(body.errors[0].extensions.classification).to.eql('NOT_FOUND'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "mutation CriarConsulta($input: CriarConsultaInput!) {\n  criarConsulta(input: $input) {\n    id\n    dataHora\n    status\n    observacoes\n    paciente { id nome }\n    medico { id nome }\n  }\n}",
+                "variables": "{\n  \"input\": {\n    \"pacienteId\": \"999\",\n    \"medicoId\": \"1\",\n    \"dataHora\": \"2027-05-10T10:00:00\"\n  }\n}"
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/graphql",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "graphql"
+              ]
+            },
+            "description": "Referencia a um paciente que nao existe.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenEnfermeiro}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

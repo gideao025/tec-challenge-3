@@ -1,0 +1,10 @@
+# O contexto de build e a raiz do repo; mantenha-o enxuto.
+target/
+*/target/
+.git/
+.idea/
+*.iml
+.mvn/wrapper/maven-wrapper.jar
+postman/
+README.md
+docker-compose.yml

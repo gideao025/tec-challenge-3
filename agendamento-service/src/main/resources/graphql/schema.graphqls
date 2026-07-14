@@ -1,0 +1,68 @@
+# Schema-first: este arquivo e a fonte da verdade do contrato GraphQL.
+# Datas usam String no formato ISO-8601 (ex.: "2026-08-01T14:30:00").
+
+type Query {
+    """
+    Historico de consultas de um paciente.
+
+    Para um usuario com perfil PACIENTE o `pacienteId` e ignorado/rejeitado: o
+    filtro e forcado para o proprio prontuario. MEDICO e ENFERMEIRO devem informa-lo.
+    `apenasFuturas: true` devolve somente consultas a partir de agora.
+    """
+    consultasPorPaciente(pacienteId: ID, apenasFuturas: Boolean): [Consulta!]!
+
+    "Detalhe de uma consulta. Um PACIENTE so acessa as proprias."
+    consulta(id: ID!): Consulta
+}
+
+type Mutation {
+    "Registra uma nova consulta (MEDICO ou ENFERMEIRO). Nasce com status AGENDADA."
+    criarConsulta(input: CriarConsultaInput!): Consulta!
+
+    "Edita uma consulta existente (apenas MEDICO). Campos omitidos sao preservados."
+    atualizarConsulta(id: ID!, input: AtualizarConsultaInput!): Consulta!
+}
+
+type Consulta {
+    id: ID!
+    paciente: Paciente!
+    medico: Medico!
+    dataHora: String!
+    status: StatusConsulta!
+    observacoes: String
+    criadoEm: String!
+    atualizadoEm: String!
+}
+
+type Paciente {
+    id: ID!
+    nome: String!
+    email: String!
+    cpf: String!
+}
+
+type Medico {
+    id: ID!
+    nome: String!
+    crm: String!
+    especialidade: String!
+}
+
+enum StatusConsulta {
+    AGENDADA
+    REALIZADA
+    CANCELADA
+}
+
+input CriarConsultaInput {
+    pacienteId: ID!
+    medicoId: ID!
+    dataHora: String!
+    observacoes: String
+}
+
+input AtualizarConsultaInput {
+    dataHora: String
+    status: StatusConsulta
+    observacoes: String
+}

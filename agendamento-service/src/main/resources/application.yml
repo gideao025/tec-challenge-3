@@ -1,0 +1,55 @@
+spring:
+  application:
+    name: agendamento-service
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:agendamento}
+    username: ${DB_USER:agendamento}
+    password: ${DB_PASSWORD:agendamento}
+
+  jpa:
+    hibernate:
+      # O schema e propriedade do Flyway; o Hibernate apenas valida o mapeamento.
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: America/Sao_Paulo
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+
+  graphql:
+    graphiql:
+      # Console interativo para explorar o schema durante a avaliacao.
+      enabled: true
+      path: /graphiql
+    schema:
+      locations: classpath:graphql/
+
+server:
+  port: ${SERVER_PORT:8080}
+
+app:
+  jwt:
+    # Chave HS256. Em producao viria de um cofre (Vault/Secrets Manager), nunca do repo.
+    secret: ${JWT_SECRET:cGFyYS1kZXNlbnZvbHZpbWVudG8tYXBlbmFzLXRyb3F1ZS1lbS1wcm9kdWNhby0xMjM0NTY3ODkw}
+    expiracao-minutos: ${JWT_EXPIRACAO_MINUTOS:120}
+    emissor: agendamento-service
+
+  mensageria:
+    exchange: consultas.exchange
+    routing-key-criada: consulta.criada
+    routing-key-atualizada: consulta.atualizada
+
+logging:
+  level:
+    br.com.fiap.agendamento: INFO

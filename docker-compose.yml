@@ -1,0 +1,147 @@
+# Sobe o ambiente completo com um unico comando:
+#   docker compose up --build
+#
+# Nenhum passo manual: as migracoes Flyway criam o schema e a massa inicial, e a
+# topologia do RabbitMQ (exchange, fila, DLQ) e declarada pelas proprias aplicacoes.
+# Os servicos so iniciam depois que Postgres e RabbitMQ passam no healthcheck.
+
+services:
+
+  # ----------------------------------------------------------------
+  # Infraestrutura
+  # ----------------------------------------------------------------
+
+  postgres-agendamento:
+    image: postgres:16-alpine
+    container_name: postgres-agendamento
+    environment:
+      POSTGRES_DB: agendamento
+      POSTGRES_USER: agendamento
+      POSTGRES_PASSWORD: agendamento
+    ports:
+      - "5432:5432"
+    volumes:
+      - dados-postgres-agendamento:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agendamento -d agendamento"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [hospital]
+
+  postgres-notificacao:
+    image: postgres:16-alpine
+    container_name: postgres-notificacao
+    environment:
+      POSTGRES_DB: notificacao
+      POSTGRES_USER: notificacao
+      POSTGRES_PASSWORD: notificacao
+    # 5433 no host para nao colidir com o Postgres do agendamento.
+    ports:
+      - "5433:5432"
+    volumes:
+      - dados-postgres-notificacao:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notificacao -d notificacao"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [hospital]
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"    # AMQP
+      - "15672:15672"  # console web: http://localhost:15672 (guest/guest)
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    networks: [hospital]
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: mailhog
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # caixa de entrada: http://localhost:8025
+    networks: [hospital]
+
+  # ----------------------------------------------------------------
+  # Aplicacoes
+  # ----------------------------------------------------------------
+
+  agendamento-service:
+    build:
+      # O contexto e a raiz porque o build Maven e multi-modulo (precisa do pom pai).
+      context: .
+      dockerfile: agendamento-service/Dockerfile
+    container_name: agendamento-service
+    environment:
+      DB_HOST: postgres-agendamento
+      DB_PORT: 5432
+      DB_NAME: agendamento
+      DB_USER: agendamento
+      DB_PASSWORD: agendamento
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      # Em producao viria de um cofre de segredos, jamais versionada.
+      JWT_SECRET: cGFyYS1kZXNlbnZvbHZpbWVudG8tYXBlbmFzLXRyb3F1ZS1lbS1wcm9kdWNhby0xMjM0NTY3ODkw
+      JWT_EXPIRACAO_MINUTOS: 120
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres-agendamento:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+    networks: [hospital]
+
+  notificacao-service:
+    build:
+      context: .
+      dockerfile: notificacao-service/Dockerfile
+    container_name: notificacao-service
+    environment:
+      DB_HOST: postgres-notificacao
+      DB_PORT: 5432
+      DB_NAME: notificacao
+      DB_USER: notificacao
+      DB_PASSWORD: notificacao
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      MAIL_HOST: mailhog
+      MAIL_PORT: 1025
+      # Lembretes diarios as 08:00. Para ver o job rodando agora, suba com:
+      #   CRON_LEMBRETES="0 * * * * *" docker compose up
+      # (dispara a cada minuto) e acompanhe a caixa em http://localhost:8025
+      CRON_LEMBRETES: ${CRON_LEMBRETES:-0 0 8 * * *}
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres-notificacao:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      mailhog:
+        condition: service_started
+    restart: unless-stopped
+    networks: [hospital]
+
+volumes:
+  dados-postgres-agendamento:
+  dados-postgres-notificacao:
+
+networks:
+  hospital:
+    driver: bridge

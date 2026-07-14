@@ -1,0 +1,41 @@
+# Perfil de teste: H2 em modo PostgreSQL, executando AS MESMAS migracoes Flyway
+# usadas em producao. Assim o schema real e exercitado pelo build, sem exigir Docker.
+spring:
+  datasource:
+    url: jdbc:h2:mem:agendamento;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+  rabbitmq:
+    listener:
+      simple:
+        # Nao ha broker durante os testes; os publishers sao mockados.
+        auto-startup: false
+
+app:
+  jwt:
+    secret: c2VncmVkby1kZS10ZXN0ZS1hcGVuYXMtcGFyYS1vcy10ZXN0ZXMtYXV0b21hdGl6YWRvcw==
+    expiracao-minutos: 60
+    emissor: agendamento-service-test
+
+  # Este arquivo SOBRESCREVE o application.yml de main (mesmo caminho no classpath),
+  # entao a topologia precisa ser repetida aqui — sem ela, a exchange seria criada com
+  # nome nulo no contexto de teste.
+  mensageria:
+    exchange: consultas.exchange
+    routing-key-criada: consulta.criada
+    routing-key-atualizada: consulta.atualizada
+
+logging:
+  level:
+    org.springframework.amqp: OFF
